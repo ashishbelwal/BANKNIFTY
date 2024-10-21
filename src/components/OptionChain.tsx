@@ -3,6 +3,24 @@ import {  ContractData, OptionData } from '@/types/index';
 import { Segmented, Space, Table } from 'antd';
 import moment from 'moment';
 import { setupWebSocket } from '@/utils/api';
+import { createStyles } from 'antd-style';
+
+const useStyle = createStyles(({ css, token }) => {
+    const { antCls }:any = token;
+    return {
+      customTable: css`
+        ${antCls}-table {
+          ${antCls}-table-container {
+            ${antCls}-table-body,
+            ${antCls}-table-content {
+              scrollbar-width: thin;
+              scrollbar-color: unset;
+            }
+          }
+        }
+      `,
+    };
+  });
 
 interface OptionChainProps {
   contracts: ContractData;
@@ -74,13 +92,14 @@ function sortDates(dateArray: string[]): string[] {
 }
 
 const OptionChain = ({ contracts, optionChain }: OptionChainProps) => {
+    const { styles } = useStyle();
     const [expiries, setExpiries] = useState<string[]>([]);
     const [selectedExpiry, setSelectedExpiry] = useState<string | null>(null);
     const [tableData, setTableData] = useState<any[]>([]);
     const [tableLoading, setTableLoading] = useState<boolean>(false);
     const [formattedExpiries, setFormattedExpiries] = useState<string[]>([]);
     const [wsData, setWsData] = useState<any[]>([]);
-    const tableRef = useRef<HTMLDivElement>(null);
+    const tblRef: Parameters<typeof Table>[0]['ref'] = React.useRef(null);
 
     const { sortedExpiries, formattedExpiryOptions } = useMemo(() => {
         const unSortedUniqueExpiries = Object.keys(contracts.OPT);
@@ -206,8 +225,8 @@ const OptionChain = ({ contracts, optionChain }: OptionChainProps) => {
     }, [wsData, updateTableData]);
 
     useEffect(() => {
-        if (tableRef.current) {
-            tableRef.current.scrollTo(0, 0);
+        if (tblRef) {
+            tblRef.current?.scrollTo({ index: 0 })
         }
     }, [selectedExpiry]);
 
@@ -222,8 +241,8 @@ const OptionChain = ({ contracts, optionChain }: OptionChainProps) => {
                     setSelectedExpiry(selectedDate);
                 }}
             />
-            <div ref={tableRef} style={{ overflow: 'auto', maxHeight: '700px' }}>
-                <Table dataSource={tableData} rowKey={'strike'} columns={columns} loading={tableLoading} pagination={false} />
+            <div >
+                <Table  ref={tblRef} dataSource={tableData} scroll={{ y: 650 }}  className={styles.customTable}  rowKey={'strike'} columns={columns} loading={tableLoading} pagination={false} />
             </div>
             </Space>
         </div>
