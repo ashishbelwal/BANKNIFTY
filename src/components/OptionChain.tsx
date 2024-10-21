@@ -1,7 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Contract, ContractData, OptionData } from '@/types/index';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
+import {  ContractData, OptionData } from '@/types/index';
 import { Segmented, Space, Table } from 'antd';
-import { Options } from 'next/dist/server/base-server';
 import moment from 'moment';
 import { setupWebSocket } from '@/utils/api';
 
@@ -12,7 +11,6 @@ interface OptionChainProps {
 
 interface MergedDataItem {
     strike: number;
-    // Add other properties as needed
     [key: string]: any;
 }
 
@@ -57,8 +55,8 @@ const columns = [
     },
     {
         title: 'Put LTP',
-        dataIndex: 'put_ltp',
-        key: 'put_ltp',
+        dataIndex: 'put_close',
+        key: 'put_close',
         render: (value: number) => value ? value : '-',
     },
     {
@@ -81,99 +79,137 @@ const OptionChain = ({ contracts, optionChain }: OptionChainProps) => {
     const [tableData, setTableData] = useState<any[]>([]);
     const [tableLoading, setTableLoading] = useState<boolean>(false);
     const [formattedExpiries, setFormattedExpiries] = useState<string[]>([]);
+    const [wsData, setWsData] = useState<any[]>([]);
+    const tableRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        setTableLoading(true);
-        console.log({contracts})
-        const unSortedniqueExpiries = Object.keys(contracts.OPT);
-        const uniqueExpiries = sortDates(unSortedniqueExpiries);
-        setExpiries(uniqueExpiries);
-        const formatted = uniqueExpiries.map(expiry => {
+    const { sortedExpiries, formattedExpiryOptions } = useMemo(() => {
+        const unSortedUniqueExpiries = Object.keys(contracts.OPT);
+        const sorted = sortDates(unSortedUniqueExpiries);
+        const formatted = sorted.map(expiry => {
             const expiryDate = moment(expiry);
             const daysToExpiry = expiryDate.diff(moment(), 'days');
             return `${expiryDate.format('DD MMM')}(${daysToExpiry}d)`;
         });
-        setFormattedExpiries(formatted);
-
-        if (uniqueExpiries.length > 0) {
-            setSelectedExpiry(uniqueExpiries[0]);
-        }
-        setTableLoading(false);
-    }, [optionChain, contracts]);
+        return { sortedExpiries: sorted, formattedExpiryOptions: formatted };
+    }, [contracts.OPT]);
 
     useEffect(() => {
-        setTableLoading(true);
-        if (selectedExpiry) {
-            const expiryDataForContract: any = contracts.OPT[selectedExpiry];
-            const expiryDataForOptionChain:any = optionChain.options[selectedExpiry];
+        setExpiries(sortedExpiries);
+        setFormattedExpiries(formattedExpiryOptions);
+        if (sortedExpiries.length > 0) {
+            setSelectedExpiry(sortedExpiries[0]);
+        }
+    }, [sortedExpiries, formattedExpiryOptions]);
 
-            // const webSocketData = setupWebSocket(selectedExpiry)
+    const mergeData = useCallback((expiryDataForContract: any, expiryDataForOptionChain: any) => {
+        const mergedData = expiryDataForContract.map((contract:any) => {
+            const index = expiryDataForOptionChain.strike.indexOf(contract.strike);
             
-            const mergedData = expiryDataForContract.map((contract:any) => {
-                const index = expiryDataForOptionChain.strike.indexOf(contract.strike);
-                
-                if (index !== -1) {
-                    return {
-                        ...contract,
-                        call_close: expiryDataForOptionChain.call_close[index],
-                        put_close: expiryDataForOptionChain.put_close[index],
-                        call_delta: expiryDataForOptionChain.call_delta[index],
-                        call_gamma: expiryDataForOptionChain.call_gamma[index],
-                        call_implied_vol: expiryDataForOptionChain.call_implied_vol[index],
-                        call_rho: expiryDataForOptionChain.call_rho[index],
-                        call_theta: expiryDataForOptionChain.call_theta[index],
-                        call_timestamp: expiryDataForOptionChain.call_timestamp[index],
-                        call_vega: expiryDataForOptionChain.call_vega[index],
-                        put_delta: expiryDataForOptionChain.put_delta[index],
-                        put_gamma: expiryDataForOptionChain.put_gamma[index],
-                        put_implied_vol: expiryDataForOptionChain.put_implied_vol[index],
-                        put_rho: expiryDataForOptionChain.put_rho[index],
-                        put_theta: expiryDataForOptionChain.put_theta[index],
-                        put_timestamp: expiryDataForOptionChain.put_timestamp[index],
-                        put_vega: expiryDataForOptionChain.put_vega[index],
-                    };
-                } else {
-                    return {
-                        ...contract,
-                        call_close: null,
-                        put_close: null,
-                        call_delta: null,
-                        call_gamma: null,
-                        call_implied_vol: null,
-                        call_rho: null,
-                        call_theta: null,
-                        call_timestamp: null,
-                        call_vega: null,
-                        put_delta: null,
-                        put_gamma: null,
-                        put_implied_vol: null,
-                        put_rho: null,
-                        put_theta: null,
-                        put_timestamp: null,
-                        put_vega: null,
-                    };
-                }
-            }).filter(Boolean);
+            if (index !== -1) {
+                return {
+                    ...contract,
+                    call_close: expiryDataForOptionChain.call_close[index],
+                    put_close: expiryDataForOptionChain.put_close[index],
+                    call_delta: expiryDataForOptionChain.call_delta[index],
+                    call_gamma: expiryDataForOptionChain.call_gamma[index],
+                    call_implied_vol: expiryDataForOptionChain.call_implied_vol[index],
+                    call_rho: expiryDataForOptionChain.call_rho[index],
+                    call_theta: expiryDataForOptionChain.call_theta[index],
+                    call_timestamp: expiryDataForOptionChain.call_timestamp[index],
+                    call_vega: expiryDataForOptionChain.call_vega[index],
+                    put_delta: expiryDataForOptionChain.put_delta[index],
+                    put_gamma: expiryDataForOptionChain.put_gamma[index],
+                    put_implied_vol: expiryDataForOptionChain.put_implied_vol[index],
+                    put_rho: expiryDataForOptionChain.put_rho[index],
+                    put_theta: expiryDataForOptionChain.put_theta[index],
+                    put_timestamp: expiryDataForOptionChain.put_timestamp[index],
+                    put_vega: expiryDataForOptionChain.put_vega[index],
+                };
+            } else {
+                return {
+                    ...contract,
+                    call_close: null,
+                    put_close: null,
+                    call_delta: null,
+                    call_gamma: null,
+                    call_implied_vol: null,
+                    call_rho: null,
+                    call_theta: null,
+                    call_timestamp: null,
+                    call_vega: null,
+                    put_delta: null,
+                    put_gamma: null,
+                    put_implied_vol: null,
+                    put_rho: null,
+                    put_theta: null,
+                    put_timestamp: null,
+                    put_vega: null,
+                };
+            }
+        }).filter(Boolean);
 
-            const sortedData: MergedDataItem[] = mergedData.sort((a: MergedDataItem, b: MergedDataItem) => a.strike - b.strike);
+        const sortedData: MergedDataItem[] = mergedData.sort((a: MergedDataItem, b: MergedDataItem) => a.strike - b.strike);
 
-            const uniqueData: MergedDataItem[] = sortedData.reduce((acc: MergedDataItem[], current: MergedDataItem) => {
-                const x = acc.find(item => item.strike === current.strike);
-                if (!x) {
-                    return acc.concat([current]);
-                } else {
-                    return acc;
-                }
-            }, []);
+        const uniqueData: MergedDataItem[] = sortedData.reduce((acc: MergedDataItem[], current: MergedDataItem) => {
+            const x = acc.find(item => item.strike === current.strike);
+            if (!x) {
+                return acc.concat([current]);
+            } else {
+                return acc;
+            }
+        }, []);
 
-            console.log({uniqueData})
+        return uniqueData;
+    }, []);
 
-            setTableData(uniqueData);
+    useEffect(() => {
+        if (selectedExpiry) {
+            setTableLoading(true);
+            const expiryDataForContract = contracts.OPT[selectedExpiry];
+            const expiryDataForOptionChain = optionChain.options[selectedExpiry];
+            
+            const mergedData = mergeData(expiryDataForContract, expiryDataForOptionChain);
+            setTableData(mergedData);
+
+            const ws = setupWebSocket(selectedExpiry);
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                setWsData(data.ltp);
+            };
+
             setTableLoading(false);
+
+            return () => {
+                ws.close();
+            };
+        }
+    }, [selectedExpiry, contracts.OPT, optionChain.options, mergeData]);
+
+
+    const updateTableData = useCallback((prevData: any[], newWsData: any[]) => {
+        return prevData.map(item => {
+            const wsItem = newWsData.find(ws => ws.token === item.token);
+            if (wsItem) {
+                return {
+                    ...item,
+                    call_ltp: item.option_type === 'CE' ? Number(wsItem.ltp).toFixed(2) : item.call_ltp,
+                };
+            }
+            return item;
+        });
+    }, []);
+
+    useEffect(() => {
+        if (wsData && wsData.length > 0) {
+            setTableData(prevData => updateTableData(prevData, wsData));
+        }
+    }, [wsData, updateTableData]);
+
+    useEffect(() => {
+        if (tableRef.current) {
+            tableRef.current.scrollTo(0, 0);
         }
     }, [selectedExpiry]);
-
-    
 
     return (
         <div style={{width: '100%'}}>
@@ -186,9 +222,10 @@ const OptionChain = ({ contracts, optionChain }: OptionChainProps) => {
                     setSelectedExpiry(selectedDate);
                 }}
             />
-            <Table dataSource={tableData} columns={columns} loading={tableLoading}  />
+            <div ref={tableRef} style={{ overflow: 'auto', maxHeight: '700px' }}>
+                <Table dataSource={tableData} rowKey={'strike'} columns={columns} loading={tableLoading} pagination={false} />
+            </div>
             </Space>
-            
         </div>
     );
 };

@@ -1,5 +1,4 @@
 import { Contract, OptionData } from '@/types/index';
-import { contractsDummyData, optionChainDummyData } from './dummyData';
 import axios from 'axios';
 
 
@@ -56,13 +55,13 @@ export async function alternatefetchOptionChain(expiryDate: string): Promise<any
 
 export function setupWebSocket(expiry: string): WebSocket {
     console.log("Start WebSocket");
+    console.log({expiry})
   const ws = new WebSocket('https://prices.algotest.xyz/mock/updates');
 
   ws.onopen = () => {
     console.log("WebSocket connection opened");
     const subscriptionMessage = {
       msg: {
-        Type: 'subscribe',
         datatypes: ['ltp'],
         underlyings: [
           {
@@ -77,8 +76,13 @@ export function setupWebSocket(expiry: string): WebSocket {
   };
 
   ws.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    console.log('Received WebSocket data:', data);
+    try {
+      const data = JSON.parse(event.data);
+      // console.log('Received WebSocket data:', data);
+    } catch (error) {
+      console.error('Error parsing WebSocket data:', error);
+    }
+      
   };
 
   ws.onerror = (error) => {
