@@ -1,4 +1,4 @@
-export let contractsDummyData = {
+export const contractsDummyData = {
     "CASH": {
       "token": "NSE_4",
       "symbol": "Nifty Bank",

@@ -1,24 +1,37 @@
 "use client";
 import { useState, useEffect } from 'react';
-import OptionChain from '@/components/OptionChain';
 import { fetchContracts, fetchOptionChain } from '@/utils/api';
-import { Contract, ContractData, OptionData } from '@/types';
+import { CashData, CashInstrument, Contract, ContractData, FutureInstrumentCollection, Futures, ImpliedFutures, OptionData, Options, VixData } from '@/types';
 import styles from "./page.module.css";
 import { Spin, Typography } from 'antd';
+import OptionChain from '@/components/OptionChain';
 
 const { Title } = Typography;
 
 export default function Home() {
-  const [contracts, setContracts] = useState<Contract[]>([]);
-  const [optionChain, setOptionChain] = useState<OptionData[]>([]);
+  const [contracts, setContracts] = useState<ContractData>({
+    OPT: {} as Contract,
+    CASH: {} as CashInstrument,
+    FUT: {} as FutureInstrumentCollection
+
+  });
+  const [optionChain, setOptionChain] = useState<OptionData>({
+    options: {} as Options,
+    candle: "",
+    underlying: "",
+    implied_futures: {} as ImpliedFutures,
+    futures: {} as Futures,
+    cash: {} as CashData,
+    vix: {} as VixData
+  });
   const [loading, setLoading] = useState(true);
 
 
   const fetchData = async () => {
     try {
-      const contractsData = await fetchContracts();
+      const contractsData: ContractData = await fetchContracts();
       setContracts(contractsData);
-      const optionChainData = await fetchOptionChain();
+      const optionChainData: OptionData = await fetchOptionChain();
       setOptionChain(optionChainData);
       setLoading(false);
     } catch (error) {
@@ -39,7 +52,7 @@ export default function Home() {
         {loading ? (
           <Spin />
         ) : (
-          <OptionChain contracts={contracts} optionChain={optionChain as any} />
+          <OptionChain contracts={contracts} optionChain={optionChain} />
         )}
       </main>
       <footer className={styles.footer}>
