@@ -10,7 +10,7 @@ export async function fetchContracts(underlying: string = "BANKNIFTY") {
         Accept: "application/json, text/plain, */*",
       },
     });
-    return response.data;
+    return response.data.BANKNIFTY;
   } catch (error) {
     console.error("Error fetching contracts:", error);
     throw error;
@@ -57,6 +57,7 @@ export function setupWebSocket(expiry: string) {
     };
 
     wsInstance.onmessage = (event) => {
+      
       try {
         const data = JSON.parse(event.data);
         console.log('Received WebSocket data:', data);
@@ -81,7 +82,7 @@ export function setupWebSocket(expiry: string) {
 }
 
 function sendSubscription(expiry: string) {
-  console.log({expiry});
+  
   if (wsInstance && wsInstance.readyState === WebSocket.OPEN) {
     const subscriptionMessage = {
       msg: {
@@ -96,6 +97,7 @@ function sendSubscription(expiry: string) {
         ],
       },
     };
+    console.log({wsInstance});
     wsInstance.send(JSON.stringify(subscriptionMessage));
   }
 }
